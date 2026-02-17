@@ -1,0 +1,55 @@
+/*
+ * =============================================================================
+ * Gradle ビルド設定
+ * =============================================================================
+ *
+ * 【学習ポイント】
+ * Gradle は Java プロジェクトのビルドツール。
+ * 依存関係の管理、コンパイル、テスト実行、JAR 作成などを行う。
+ *
+ * 【Reviewer観点】
+ * - 依存関係のバージョンは固定すべき（セキュリティ・再現性）
+ * - 不要な依存関係は含めない
+ * =============================================================================
+ */
+
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.2'
+    id 'io.spring.dependency-management' version '1.1.4'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    sourceCompatibility = '21'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Spring Boot Web: REST API を作成するための基本機能
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // Spring Boot Data JPA: DB アクセスを簡略化する ORM
+    // 【学習ポイント】
+    // JPA = Java Persistence API。SQL を直接書かずに DB 操作できる。
+    // ただし N+1 問題など、パフォーマンス上の落とし穴がある。
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // PostgreSQL ドライバ
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // 開発ツール（ホットリロード等）
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    // テスト
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

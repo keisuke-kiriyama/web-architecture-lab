@@ -1,0 +1,105 @@
+# =============================================================================
+# Docker Compose 構成
+# =============================================================================
+#
+# 【学習ポイント】
+# この構成では3つのコンテナが異なるネットワークで通信する。
+#
+# 1. front (Next.js) - port 3000
+#    - ブラウザからアクセスするエントリポイント
+#    - 開発時はホットリロード有効
+#
+# 2. api (Spring Boot) - port 8080
+#    - REST API を提供
+#    - front から HTTP で呼び出される
+#    - 【重要】ブラウザから直接アクセスすると CORS が発生する
+#
+# 3. db (PostgreSQL) - port 5432
+#    - データ永続化
+#    - api からのみアクセス（front からは直接アクセスしない）
+#
+# 【Reviewer観点】
+# - 環境変数はハードコードせず .env から読み込むべき（本番では）
+# - 今回は学習用のため docker-compose.yml に直書き
+# - パスワードは公開リポジトリでも問題ない値を使用
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Frontend: Next.js
+  # ---------------------------------------------------------------------------
+  front:
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      # ソースコードをマウントしてホットリロードを有効化
+      - ./front:/app
+      # node_modules はコンテナ内のものを使用（ホストと混在させない）
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      # API の URL（コンテナ間通信ではなくブラウザからのアクセス用）
+      # 【学習ポイント】
+      # ブラウザから見た API の URL は localhost:8080
+      # コンテナ間通信なら http://api:8080 だが、CSR ではブラウザが fetch するため localhost
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+    depends_on:
+      - api
+
+  # ---------------------------------------------------------------------------
+  # Backend: Spring Boot
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      # ソースコードをマウント（Gradle の継続ビルドで反映）
+      - ./api:/app
+      # Gradle キャッシュを永続化
+      - gradle-cache:/home/gradle/.gradle
+    environment:
+      - SPRING_PROFILES_ACTIVE=development
+      # DB 接続情報
+      # 【学習ポイント】
+      # コンテナ間通信では「サービス名」がホスト名になる
+      # db:5432 で PostgreSQL コンテナに接続できる
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/webapp
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------
+  # Database: PostgreSQL
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    ports:
+      # ホストからも接続可能にする（デバッグ用）
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=webapp
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      # データ永続化
+      - postgres-data:/var/lib/postgresql/data
+      # 初期化スクリプト（テーブル作成等）
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-data:
+  gradle-cache:
