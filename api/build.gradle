@@ -40,6 +40,12 @@ dependencies {
     // ただし N+1 問題など、パフォーマンス上の落とし穴がある。
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
+    // Spring Security: 認証・認可フレームワーク
+    // 【学習ポイント】
+    // 追加した瞬間、全エンドポイントが認証必須になる。
+    // 「デフォルトで安全、必要に応じて緩める」という設計思想。
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
     // PostgreSQL ドライバ
     runtimeOnly 'org.postgresql:postgresql'
 
