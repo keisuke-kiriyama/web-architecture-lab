@@ -22,10 +22,14 @@ public class Post {
     /**
      * 主キー
      * GenerationType.IDENTITY = DB の自動採番（SERIAL）を使用
+     *
+     * 【学習ポイント】
+     * PostgreSQL の SERIAL は INTEGER（32ビット）。
+     * Java の Long は BIGINT（64ビット）に対応するため、型を合わせる必要がある。
      */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Integer id;
 
     /**
      * タイトル（必須）
@@ -59,11 +63,11 @@ public class Post {
     // JPA はリフレクションでフィールドにアクセスするため、
     // Getter/Setter がなくても動作するが、慣例として用意する。
 
-    public Long getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 
