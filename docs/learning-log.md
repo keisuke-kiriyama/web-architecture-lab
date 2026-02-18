@@ -172,6 +172,59 @@ _Phase 7 開始後に記録_
 | Spring Boot | Springを「すぐ使える」ようにしたもの。自動設定+組み込みサーバー |
 | application.yml | Spring Bootの設定ファイル。自動設定をカスタマイズする |
 
+### React / Next.js
+
+| 用語 | 説明 |
+|------|------|
+| React | UI を構築するライブラリ。ルーティング機能は持たない |
+| Next.js | React + ルーティング + SSR + その他便利機能 |
+| 関数コンポーネント | UI を関数で表現する。戻り値（JSX）が画面に表示される |
+| JSX | JavaScript 内で HTML 風の構文を書ける拡張 |
+| `{}` | JSX 内で JavaScript 式を埋め込む。変数、計算、map 等が使える |
+| App Router | Next.js のルーティング方式。`app/` ディレクトリ構造が URL パスになる |
+| ファイルベースルーティング | ディレクトリ/ファイル構造が URL に対応する仕組み |
+| `export default` | ファイルのメイン出力。App Router は `page.tsx` の `export default` 関数を実行する |
+| Server Component | デフォルト。サーバーで実行され、完成した HTML を返す（SSR） |
+| Client Component | `"use client"` を書く。ブラウザで実行される（CSR） |
+| JSP | Java のテンプレートエンジン。SSR |
+
+### Next.js の Server Component と Client Component
+
+| | Server Component (SSR) | Client Component (CSR) |
+|---|---|---|
+| 宣言 | 何も書かない（デフォルト） | `"use client"` を先頭に書く |
+| 実行場所 | サーバー | ブラウザ |
+| 返されるもの | 完成した HTML | HTML + JavaScript（ブラウザで実行） |
+| `useState` / `useEffect` | 使えない | 使える |
+| fetch の実行場所 | サーバー（CORS なし） | ブラウザ（CORS 発生の可能性） |
+
+### SSR / CSR の使い分け
+
+| SSR が向いている | CSR が向いている |
+|-----------------|-----------------|
+| SEO が必要（LP、ブログ） | SEO 不要（管理画面） |
+| 初回表示速度が重要 | インタラクティブな操作が多い |
+| データ更新頻度が低い | リアルタイム更新が必要 |
+| 認証不要 or シンプル | 認証後の画面 |
+
+### App Router のルーティング例
+
+| ファイルパス | URL |
+|-------------|-----|
+| `app/page.tsx` | `/` |
+| `app/posts/page.tsx` | `/posts` |
+| `app/posts/[id]/page.tsx` | `/posts/1`, `/posts/2` など（動的ルート） |
+| `app/about/page.tsx` | `/about` |
+
+### App Router の特殊ファイル
+
+| ファイル名 | 役割 |
+|-----------|------|
+| `page.tsx` | そのルートで表示されるページ |
+| `layout.tsx` | 共通レイアウト（ヘッダー等） |
+| `loading.tsx` | ローディング中の表示 |
+| `error.tsx` | エラー時の表示 |
+
 ---
 
 ## 更新履歴
@@ -181,3 +234,5 @@ _Phase 7 開始後に記録_
 | 2025-02-15 | 初版作成（テンプレート） |
 | 2025-02-15 | Phase 0: CSR/SSR と SPA/MPA の整理を追加 |
 | 2025-02-16 | 用語・概念リストを追加 |
+| 2025-02-18 | React / Next.js の基本概念を追加 |
+| 2025-02-18 | Server Component / Client Component、SSR/CSR の使い分けを追加 |

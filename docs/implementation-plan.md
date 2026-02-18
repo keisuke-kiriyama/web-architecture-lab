@@ -137,20 +137,30 @@ Webらしさの核心である「セッション」を理解する。
 
 レンダリング戦略の判断軸を持つ。
 
+### ブランチ構成
+
+| ブランチ | 構成 | 目的 |
+|----------|------|------|
+| `main` | Next.js CSR + Spring Boot REST API | CSR の理解（Phase 1〜3） |
+| `feature/ssr-nextjs` | Next.js Server Components | モダン SSR の理解 |
+| `feature/ssr-jsp` | Spring Boot + JSP | 従来型 SSR の理解、フロント/バック一体構成 |
+
 ### 実装内容
 
-1. CSR実装（useEffect + fetch）
-2. SSR実装（Server Components / getServerSideProps）
-3. 同一機能で比較
-4. Hydration の観察
+1. CSR実装（useEffect + fetch）- main ブランチ
+2. Next.js SSR実装（Server Components）- feature/ssr-nextjs
+3. JSP SSR実装（Spring Boot + JSP）- feature/ssr-jsp
+4. 3つの構成を比較
+5. Hydration の観察（Next.js SSR）
 
 ### 習得する概念
 
 | 概念 | 説明 |
 |------|------|
-| CSR | Client-Side Rendering |
-| SSR | Server-Side Rendering |
-| Hydration | サーバーHTMLにイベントを付与 |
+| CSR | Client-Side Rendering。ブラウザで HTML 生成 |
+| SSR (Next.js) | Server Components でサーバー側 HTML 生成 |
+| SSR (JSP) | Java テンプレートエンジンでサーバー側 HTML 生成 |
+| Hydration | サーバーHTMLにイベントを付与（Next.js SSR） |
 | TTFB / FCP / LCP | パフォーマンス指標 |
 
 ### 検証観点
@@ -159,6 +169,8 @@ Webらしさの核心である「セッション」を理解する。
 - [ ] Network タブで読み込み順序を比較できるか
 - [ ] 認証との組み合わせ課題を説明できるか
 - [ ] SEO観点での違いを説明できるか
+- [ ] JSP 構成では CORS が発生しないことを確認できるか
+- [ ] フロント/バック分離 vs 一体構成のトレードオフを説明できるか
 
 ### 非機能観点
 
@@ -167,6 +179,7 @@ Webらしさの核心である「セッション」を理解する。
 | パフォーマンス | 初回表示速度 |
 | パフォーマンス | サーバー負荷 |
 | セキュリティ | 認証情報の扱い |
+| 運用 | デプロイの複雑さ |
 
 ---
 
