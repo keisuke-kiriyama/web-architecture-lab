@@ -32,7 +32,26 @@ INSERT INTO posts (title, content) VALUES
     ('最初の投稿', 'これはサンプルの投稿です。'),
     ('2番目の投稿', 'Docker Compose で環境構築しました。');
 
+-- =============================================================================
+-- users テーブル（Phase 2: 認証用）
+-- =============================================================================
+--
 -- 【学習ポイント】
--- Phase 2 で認証を導入する際、以下のようなカラムを追加する：
--- - user_id: 投稿者（認可で使用）
--- 今は認証なしのため、誰でも全データにアクセス可能
+-- パスワードは平文保存NG。BCrypt でハッシュ化して保存する。
+-- BCrypt のハッシュ値は約60文字 → VARCHAR(255) で余裕を持たせる。
+--
+-- 【Reviewer観点】
+-- - パスワードカラムは十分な長さがあるか
+-- - ユニーク制約が適切に設定されているか
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- posts に user_id を追加（認可で使用）
+-- 【学習ポイント】
+-- 外部キー制約で参照整合性を保証する。
+-- ON DELETE CASCADE: ユーザー削除時に投稿も削除
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE
