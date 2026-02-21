@@ -65,7 +65,16 @@ services:
       # Gradle キャッシュを永続化
       - gradle-cache:/home/gradle/.gradle
     environment:
-      - SPRING_PROFILES_ACTIVE=development
+      # 認証方式の切り替え
+      # 【学習ポイント】
+      # SPRING_PROFILES_ACTIVE で認証方式を切り替え可能：
+      # - jwt    : JWT 認証（Phase 3）
+      # - cookie : Cookie セッション認証（Phase 2）
+      #
+      # 切り替え手順：
+      # 1. この値を変更
+      # 2. docker compose up -d --build api
+      - SPRING_PROFILES_ACTIVE=jwt
       # DB 接続情報
       # 【学習ポイント】
       # コンテナ間通信では「サービス名」がホスト名になる

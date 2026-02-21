@@ -2,7 +2,13 @@ package com.example.api.controller;
 
 import com.example.api.entity.User;
 import com.example.api.repository.UserRepository;
+import com.example.api.security.JwtUtil;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,13 +21,15 @@ import java.util.Map;
  * /api/auth/** は SecurityConfig で permitAll() に設定済み。
  * 認証なしでアクセス可能。
  *
- * ログイン処理自体は Spring Security が行う（/api/auth/login）。
- * このコントローラーではユーザー登録のみ実装。
+ * 【認証方式による違い】
+ * - Cookie セッション: Spring Security の formLogin() が自動でログイン処理
+ * - JWT: このコントローラーで独自にログイン処理を実装
  *
  * 【Reviewer観点】
  * - パスワードを平文で保存していないか
  * - 入力値のバリデーションがあるか
  * - ユーザー名の重複チェックがあるか
+ * - JWT のレスポンスに機密情報が含まれていないか
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -29,10 +37,22 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
 
-    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    // JwtUtil は JWT プロファイル時のみ存在するため、オプショナルに注入
+    // 【学習ポイント】
+    // @Autowired(required = false) で、Bean が存在しない場合は null になる。
+    // Cookie セッション時は JwtUtil が不要なので、この方式を使う。
+    @Autowired(required = false)
+    private JwtUtil jwtUtil;
+
+    public AuthController(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            AuthenticationManager authenticationManager) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.authenticationManager = authenticationManager;
     }
 
     /**
@@ -92,6 +112,75 @@ public class AuthController {
     }
 
     /**
+     * JWT 用ログインエンドポイント
+     *
+     * 【学習ポイント】
+     * JWT 認証では、Spring Security の formLogin() を使わず、
+     * 独自にログインエンドポイントを実装する。
+     *
+     * 処理の流れ：
+     * 1. AuthenticationManager で username/password を検証
+     * 2. 認証成功したら JwtUtil で JWT を生成
+     * 3. JWT をレスポンスで返す
+     *
+     * 【Cookie セッションとの違い】
+     * - Cookie セッション: Set-Cookie ヘッダーでセッション ID を返す
+     * - JWT: レスポンスボディで JWT を返す
+     *
+     * 【Reviewer観点】
+     * - 認証失敗時に詳細なエラーメッセージを返していないか
+     *   （「ユーザーが存在しない」と「パスワードが違う」を区別しない）
+     * - JWT に機密情報が含まれていないか
+     */
+    @PostMapping("/jwt/login")
+    public ResponseEntity<?> jwtLogin(@RequestBody LoginRequest request) {
+        // JWT プロファイルでない場合はエラー
+        if (jwtUtil == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "JWT authentication is not enabled",
+                "message", "Set SPRING_PROFILES_ACTIVE=jwt to enable JWT authentication"
+            ));
+        }
+
+        try {
+            // AuthenticationManager で認証
+            // 【学習ポイント】
+            // UsernamePasswordAuthenticationToken に username/password を渡す。
+            // AuthenticationManager が UserDetailsService を使って検証。
+            Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                    request.username(),
+                    request.password()
+                )
+            );
+
+            // 認証成功 → JWT を生成
+            String token = jwtUtil.generateToken(authentication.getName());
+
+            // JWT をレスポンスで返す
+            // 【学習ポイント】
+            // Cookie セッションでは Set-Cookie ヘッダーで返すが、
+            // JWT ではレスポンスボディで返す。
+            // クライアントは localStorage や Cookie に保存する。
+            return ResponseEntity.ok(Map.of(
+                "message", "Login successful",
+                "token", token,
+                "username", authentication.getName()
+            ));
+
+        } catch (BadCredentialsException e) {
+            // 認証失敗
+            // 【学習ポイント】
+            // 「ユーザーが存在しない」と「パスワードが違う」を区別しない。
+            // 区別すると攻撃者にヒントを与えてしまう。
+            return ResponseEntity.status(401).body(Map.of(
+                "error", "Authentication failed",
+                "message", "Invalid username or password"
+            ));
+        }
+    }
+
+    /**
      * リクエストボディ用の record
      *
      * 【学習ポイント】
@@ -99,4 +188,9 @@ public class AuthController {
      * getter、equals、hashCode、toString が自動生成される。
      */
     public record RegisterRequest(String username, String password) {}
+
+    /**
+     * ログイン用のリクエストボディ
+     */
+    public record LoginRequest(String username, String password) {}
 }

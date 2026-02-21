@@ -131,27 +131,49 @@ Webらしさの核心である「セッション」を理解する。
 
 ---
 
-## Phase 4: CSR vs SSR
+## Phase 4: CSR vs SSR + 画面遷移 + Thymeleaf/JSP
 
 ### 目的
 
-レンダリング戦略の判断軸を持つ。
+1. レンダリング戦略（CSR/SSR）の判断軸を持つ
+2. Web における画面遷移と値渡しの方式を理解する
+3. フロント/バック一体型（Thymeleaf/JSP）と分離型（Next.js）の違いを理解する
 
-### ブランチ構成
+### 切り替え方式
 
-| ブランチ | 構成 | 目的 |
-|----------|------|------|
-| `main` | Next.js CSR + Spring Boot REST API | CSR の理解（Phase 1〜3） |
-| `feature/ssr-nextjs` | Next.js Server Components | モダン SSR の理解 |
-| `feature/ssr-jsp` | Spring Boot + JSP | 従来型 SSR の理解、フロント/バック一体構成 |
+**URL パス + プロファイルで切り替え**（同一プロジェクト内で比較可能）
+
+| URL | 方式 | 切り替え方法 |
+|-----|------|-------------|
+| `localhost:3000/posts` | CSR (Next.js) | - |
+| `localhost:3000/posts-ssr` | SSR (Next.js) | - |
+| `localhost:8080/view/posts` | Thymeleaf | `SPRING_PROFILES_ACTIVE=jwt,thymeleaf` |
+| `localhost:8080/view/posts` | JSP | `SPRING_PROFILES_ACTIVE=jwt,jsp` |
 
 ### 実装内容
 
-1. CSR実装（useEffect + fetch）- main ブランチ
-2. Next.js SSR実装（Server Components）- feature/ssr-nextjs
-3. JSP SSR実装（Spring Boot + JSP）- feature/ssr-jsp
-4. 3つの構成を比較
-5. Hydration の観察（Next.js SSR）
+**4-1: CSR/SSR 比較（Next.js）**:
+1. CSR 版（既存 `/posts`）を維持
+2. SSR 版（`/posts-ssr`）を新規作成
+3. DevTools で初回 HTML、Network を比較
+4. 認証（JWT）との組み合わせを検証
+
+**4-2: 画面遷移**:
+5. 動的ルート `/posts/[id]` で詳細ページ作成
+6. `<Link>` による SPA 遷移の観察
+7. `router.push()` によるプログラム的遷移
+8. クエリパラメータ `?page=2` の扱い
+
+**4-3: Thymeleaf（フロント/バック一体型）**:
+9. Spring Boot に Thymeleaf を追加
+10. `/view/posts` でテンプレートレンダリング
+11. フォーム処理（PRG パターン）
+12. Next.js SSR との比較
+
+**4-4: JSP（レガシー比較）**:
+13. JSP ビューリゾルバー設定
+14. 同じ Controller で JSP/Thymeleaf 切り替え
+15. JSP と Thymeleaf の構文比較
 
 ### 習得する概念
 
@@ -159,27 +181,80 @@ Webらしさの核心である「セッション」を理解する。
 |------|------|
 | CSR | Client-Side Rendering。ブラウザで HTML 生成 |
 | SSR (Next.js) | Server Components でサーバー側 HTML 生成 |
-| SSR (JSP) | Java テンプレートエンジンでサーバー側 HTML 生成 |
-| Hydration | サーバーHTMLにイベントを付与（Next.js SSR） |
-| TTFB / FCP / LCP | パフォーマンス指標 |
+| SSR (Thymeleaf) | Java テンプレートエンジンでサーバー側 HTML 生成 |
+| SSR (JSP) | Java Server Pages でサーバー側 HTML 生成（レガシー） |
+| Hydration | サーバー HTML にイベントを付与（Next.js のみ） |
+| 動的ルート | `/posts/[id]` で URL パラメータ取得 |
+| Link | SPA 遷移（リロードなし） |
+| router.push | プログラム的な画面遷移 |
+| useSearchParams | クエリパラメータの取得 |
+| Model | Spring MVC でテンプレートにデータを渡す仕組み |
+| PRG パターン | Post-Redirect-Get。フォーム二重送信防止 |
+
+### アーキテクチャ比較
+
+| 観点 | Next.js (CSR/SSR) | Thymeleaf/JSP |
+|------|-------------------|---------------|
+| 構成 | フロント/バック分離 | フロント/バック一体 |
+| API | REST API 経由 | Controller → View 直接 |
+| CORS | 発生しうる | 発生しない |
+| 状態管理 | useState, Context | HttpSession, Model |
+| フォーム | fetch + JSON | HTML form + PRG |
+| SPA 遷移 | あり（リロードなし） | なし（毎回リロード） |
+
+### Thymeleaf vs JSP
+
+| 観点 | Thymeleaf | JSP |
+|------|-----------|-----|
+| 構文 | `th:text="${value}"` | `<%= value %>` or `${value}` (EL) |
+| ファイル | `.html`（静的表示可） | `.jsp`（サーバー必須） |
+| Spring 推奨 | ◎（公式推奨） | △（非推奨だが現役） |
+| IDE プレビュー | 可能 | 不可 |
+| XSS 対策 | デフォルトでエスケープ | `<c:out>` が必要 |
+
+### 画面遷移の値渡し方式
+
+| 方式 | 例 | 特徴 |
+|------|-----|------|
+| URL パラメータ | `/posts/123` | ブックマーク可、SEO 有利 |
+| クエリパラメータ | `/posts?page=2` | フィルタ、ページネーション |
+| localStorage | - | 永続化、XSS リスク |
+| Context | - | コンポーネント間共有、リロードで消える |
+| Cookie | - | サーバーでも読める |
+| HttpSession | - | Thymeleaf/JSP でサーバー側セッション |
+| Flash Attribute | - | リダイレクト後に1回だけ表示（PRG用） |
 
 ### 検証観点
 
-- [ ] View Source で初期HTMLの違いを確認できるか
+**CSR/SSR (Next.js)**:
+- [ ] View Source で初期 HTML の違いを確認できるか
 - [ ] Network タブで読み込み順序を比較できるか
+- [ ] SSR での API 呼び出し URL が Docker 内ホスト名になることを理解しているか
 - [ ] 認証との組み合わせ課題を説明できるか
-- [ ] SEO観点での違いを説明できるか
-- [ ] JSP 構成では CORS が発生しないことを確認できるか
-- [ ] フロント/バック分離 vs 一体構成のトレードオフを説明できるか
+- [ ] SEO 観点での違いを説明できるか
+
+**画面遷移**:
+- [ ] Link と a タグの違い（リロード有無）を説明できるか
+- [ ] 動的ルートでパラメータを取得できるか
+- [ ] クエリパラメータの変更でページ遷移せずに状態更新できるか
+- [ ] 値渡し方式の選択基準を説明できるか
+
+**Thymeleaf/JSP**:
+- [ ] Model にデータを詰めてテンプレートで表示できるか
+- [ ] フォーム送信と PRG パターンを説明できるか
+- [ ] XSS 対策（Thymeleaf: 自動、JSP: `<c:out>`）を理解しているか
+- [ ] Next.js SSR との違いを説明できるか
+- [ ] プロファイルで Thymeleaf/JSP を切り替えられるか
 
 ### 非機能観点
 
 | 観点 | チェック項目 |
 |------|-------------|
 | パフォーマンス | 初回表示速度 |
-| パフォーマンス | サーバー負荷 |
-| セキュリティ | 認証情報の扱い |
-| 運用 | デプロイの複雑さ |
+| パフォーマンス | SPA 遷移 vs フルリロードの体感差 |
+| セキュリティ | 認証情報の扱い（SSR で JWT をどう取得するか） |
+| セキュリティ | XSS 対策の違い |
+| UX | 戻るボタンの挙動、ブックマーク可能性 |
 
 ---
 
@@ -298,3 +373,4 @@ Webらしさの核心である「セッション」を理解する。
 | 日付 | 内容 |
 |------|------|
 | 2025-02-15 | 初版作成 |
+| 2025-02-21 | Phase 4 を「CSR vs SSR + 画面遷移 + Thymeleaf/JSP」に拡張 |

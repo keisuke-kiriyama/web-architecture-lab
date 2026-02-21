@@ -201,13 +201,373 @@ private boolean isOwner(Post post, Principal principal) {
 
 ## Phase 3: 認証方式比較（JWT）
 
-_Phase 3 開始後に記録_
+### JWT とは
+
+**JSON Web Token**: ユーザー情報を含む署名付きトークン。
+
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InRlc3QiLCJleHAiOjE3MDg1MDAwMDB9.署名
+└───────────────┬───────────────┘ └───────────────────┬────────────────────┘ └─┬─┘
+              Header                              Payload                  Signature
+```
+
+| 部分 | 内容 | エンコード |
+|------|------|-----------|
+| Header | アルゴリズム情報（alg: HS256 等） | Base64（復号可能） |
+| Payload | ユーザー情報、有効期限等 | Base64（復号可能） |
+| Signature | Header + Payload を秘密鍵で署名 | 改ざん検知用 |
+
+**重要**: Payload は暗号化ではなく Base64 エンコード。誰でも読める。機密情報は入れない。
+
+### Cookie セッション vs JWT
+
+| | Cookie セッション | JWT |
+|---|---|---|
+| **状態管理** | ステートフル（サーバーが保持） | ステートレス（クライアントが保持） |
+| **認証の仕組み** | セッションIDでサーバー内を参照 | トークン自体に情報が含まれる |
+| **スケーラビリティ** | サーバー間でセッション共有が必要 | 共有不要（署名検証のみ） |
+| **即時無効化** | 可能（サーバーで削除） | 困難（有効期限まで有効） |
+
+### 複数サーバーでのセッション共有
+
+Cookie セッションで複数サーバー構成にする場合の選択肢:
+
+| パターン | 仕組み | 採用率 |
+|----------|--------|--------|
+| **Redis** | セッションを共有ストレージに保存 | ◎ 最も一般的 |
+| Sticky Session | 同じユーザーを同じサーバーに振り分け | △ 減少傾向 |
+| DB | セッションを DB に保存 | ○ 追加インフラ不要 |
+
+**JWT のメリット**: サーバーが状態を持たないので、共有インフラが不要。
+
+### JWT で即時無効化できない理由
+
+```
+【Cookie セッション】
+サーバー: セッション ID → ユーザー情報 のマップを保持
+無効化:   マップから削除 → 即座に無効
+
+【JWT】
+サーバー: 何も保持しない（ステートレス）
+検証:     署名が正しいか + 有効期限内か
+無効化:   「このトークンを発行したか」を覚えていないので無効化できない
+```
+
+### ログアウトの実態
+
+```
+【通常のログアウト】
+クライアントが JWT を削除 → ユーザーは認証できなくなる → OK
+
+【問題になるケース】
+1. ユーザーがログイン（JWT 取得）
+2. 攻撃者が JWT を盗む（XSS 等）
+3. ユーザーがログアウト（クライアントで JWT 削除）
+4. 攻撃者は盗んだ JWT をまだ使える ← 問題
+```
+
+**結論**: 通常のログアウトは問題ないが、トークン漏洩時に即時無効化できない。
+
+### JWT で即時無効化が必要な場合の対策
+
+| 方法 | 仕組み | トレードオフ |
+|------|--------|--------------|
+| ブラックリスト | 無効化した JWT を Redis に記録 | ステートレスのメリットが薄れる |
+| 短い有効期限 + リフレッシュトークン | アクセストークン 15分、リフレッシュ 7日 | 複雑になる |
+| トークンバージョン管理 | ユーザーごとにバージョンを持つ | DB 参照が必要 |
+
+### Cookie セッション vs JWT の使い分け
+
+**Cookie セッション向き**:
+- 単一サーバー / 小規模
+- セッション即時無効化が必須（銀行・決済系）
+- ブラウザのみがクライアント
+
+**JWT 向き**:
+- マイクロサービス / 複数サーバー（セッション共有インフラ不要）
+- モバイルアプリも対象
+- 外部サービス連携（OAuth）
+- サーバーレス環境
+
+### JWT は「新しい」のか？
+
+| 時期 | 主流 |
+|------|------|
+| 2000年代〜 | Cookie セッション（PHP, Java EE, Rails） |
+| 2010年代〜 | JWT 登場（OAuth 2.0, SPA の普及） |
+| 現在 | 用途に応じて使い分け |
+
+**「JWT だからモダン」「Cookie だから古い」ではなく、要件に合った選択が重要。**
+
+最近は「JWT 万能論への反省」もあり、「Cookie セッション + Redis で十分では？」という回帰も見られる。
+
+### Bearer トークンとは
+
+HTTP リクエストで認証情報を送る方式の一つ。
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**「Bearer」= 「持参人」**。このトークンを持っている人（Bearer）を認証するという意味。
+
+**重要: Bearer = JWT ではない**
+
+| トークン形式 | 例 |
+|-------------|-----|
+| JWT | `eyJhbGciOi...`（自己完結型、署名検証で認証） |
+| Opaque Token | `abc123xyz`（意味のない文字列、サーバーで lookup） |
+| API Key | `sk_live_xxx`（固定キー） |
+
+Bearer はあくまで「Authorization ヘッダーの形式」であり、トークンの中身は何でもよい。
+
+**Reviewer 観点**:
+- 「Bearer トークン」と言われたら、JWT かどうかを確認する
+- Opaque Token の場合はサーバー側でセッション管理が必要（ステートフル）
+
+### 認証方式のレイヤー
+
+認証方式は「同じ粒度」ではなく、複数のレイヤーで整理すると理解しやすい。
+
+```
+【レイヤー1: 認証の主体（誰が認証するか）】
+├── 自サービスで認証（ID/Password を自分で管理）
+│   ├── Basic 認証
+│   ├── Form 認証
+│   └── API Key
+└── 外部サービスに認証を委任
+    ├── OAuth 2.0（認可プロトコル、認証にも流用）
+    └── OIDC（OAuth 2.0 + 認証レイヤー）
+
+【レイヤー2: 認証状態の保持方法】
+├── Cookie セッション（ステートフル）
+└── JWT（ステートレス）
+```
+
+| 認証方式 | 説明 | ユースケース |
+|---------|------|-------------|
+| Basic 認証 | ID/PW を Base64 エンコードしてヘッダーで送信 | 簡易API、内部ツール |
+| Form 認証 | HTMLフォームで ID/PW を POST | 一般的な Web サイト |
+| OAuth 2.0 | 外部サービス（Google等）に認可を委任 | 「Google でログイン」 |
+| OIDC | OAuth 2.0 に認証レイヤーを追加した標準規格 | エンタープライズ SSO |
+
+**OAuth 2.0 と OIDC の違い**:
+- OAuth 2.0: 「認可」の仕組み。本来は「Google Drive へのアクセス許可」のようなリソースアクセス用
+- OIDC: OAuth 2.0 の上に「認証」を追加。ID Token でユーザー情報を取得
+
+**よくある混同**:
+- 「OAuth でログイン」→ 実際は OAuth 2.0 を認証に「流用」している
+- 厳密にはログイン用途なら OIDC を使うべき
+
+### Form 認証（フォーム認証）
+
+**HTMLフォームで ID/Password を送信する認証方式。**
+
+```html
+<form action="/login" method="POST">
+  <input type="text" name="username" />
+  <input type="password" name="password" />
+  <button type="submit">ログイン</button>
+</form>
+```
+
+**特徴**:
+- RFC などの正式な仕様はない（一般的な慣例）
+- Basic 認証との違い: ブラウザの認証ダイアログではなく、自作のログインフォームを使う
+- Spring Security の `formLogin()` はこの方式を自動設定する
+
+**Basic 認証 vs Form 認証**:
+
+| | Basic 認証 | Form 認証 |
+|---|-----------|-----------|
+| UI | ブラウザ標準ダイアログ | 自作HTMLフォーム |
+| 送信方法 | Authorization ヘッダー | POST ボディ |
+| カスタマイズ | 不可 | 可能（デザイン自由） |
+| ログアウト | 困難（ブラウザがキャッシュ） | 容易（セッション破棄） |
+
+**Reviewer 観点**:
+- Basic 認証は HTTPS 必須（Base64 は暗号化ではない）
+- Form 認証は CSRF 対策が必要
+
+### HMAC-SHA256（署名アルゴリズム）
+
+JWT の署名に使われるアルゴリズム。
+
+```
+HMAC = Hash-based Message Authentication Code
+SHA256 = ハッシュアルゴリズム
+
+署名 = HMAC-SHA256(Header + "." + Payload, 秘密鍵)
+```
+
+**なぜ署名が必要か**:
+- Payload は Base64 で誰でも読める
+- 署名がないと改ざんし放題（`"role": "user"` → `"role": "admin"`）
+- 署名があれば、秘密鍵を持つサーバーだけが検証できる
+
+### application.properties
+
+Spring Boot の設定ファイル。
+
+```properties
+# 固定値
+server.port=8080
+
+# 環境変数から注入（本番運用）
+jwt.secret=${JWT_SECRET}
+```
+
+**Git 管理**:
+- `application.properties` 自体は Git 管理する
+- 秘密情報は環境変数で注入（`.env` は `.gitignore`）
 
 ---
 
-## Phase 4: CSR vs SSR
+## Phase 4: CSR vs SSR + 画面遷移 + Thymeleaf/JSP
 
-_Phase 4 開始後に記録_
+### Server Component と Client Component
+
+Next.js App Router では、コンポーネントの「実行場所」が異なる。
+
+```
+【Server Component（デフォルト）】
+実行場所: Node.js サーバー
+↓
+HTML を生成してブラウザに送る
+↓
+ブラウザは「完成した HTML」を受け取るだけ
+
+【Client Component】
+"use client" を宣言
+↓
+実行場所: ブラウザ（JavaScript エンジン）
+↓
+空の HTML + JavaScript がブラウザに送られる
+↓
+ブラウザが JavaScript を実行して DOM を構築
+```
+
+### なぜ Server Component で useState/useEffect が使えないか
+
+| Hook | 目的 | 前提 |
+|------|------|------|
+| `useState` | ブラウザのメモリに状態を保持 | 継続的に動作 |
+| `useEffect` | マウント後・状態変化後に実行 | 継続的に動作 |
+
+**Server Component は「1回実行して HTML を生成して終わり」**。
+ブラウザで継続的に動作しないので、これらの Hook は意味がない。
+
+```tsx
+// Client Component（ブラウザで実行）
+"use client";
+import { useState, useEffect } from "react";
+
+export default function Page() {
+  const [count, setCount] = useState(0);  // ブラウザのメモリに状態を保持
+
+  useEffect(() => {
+    document.title = `Count: ${count}`;  // ブラウザで実行
+  }, [count]);
+
+  return <button onClick={() => setCount(count + 1)}>Click</button>;
+}
+```
+
+```tsx
+// Server Component（サーバーで実行）
+// "use client" なし
+
+export default async function Page() {
+  // サーバーで1回実行されて終わり
+  const data = await fetch("http://api:8080/api/posts");
+
+  // HTML を生成してブラウザに送る
+  // その後、このコードは二度と実行されない
+  return <div>{data}</div>;
+}
+```
+
+### なぜ Server Component で async/await が使えるか
+
+| コンポーネント | async 使用 | 理由 |
+|---------------|-----------|------|
+| Client Component | 不可 | React のレンダリングは同期的。Promise を返すと処理できない |
+| Server Component | 可能 | サーバーは「データが揃ってから HTML を送る」ので待機できる |
+
+**Client Component で非同期処理をするには useEffect を使う**:
+```tsx
+"use client";
+useEffect(() => {
+  // マウント後に非同期処理を実行
+  fetch('/api/posts').then(res => res.json()).then(setData);
+}, []);
+```
+
+### Server Component と Client Component の比較
+
+| 項目 | Server Component | Client Component |
+|------|-----------------|------------------|
+| 宣言 | なし（デフォルト） | `"use client"` |
+| 実行場所 | Node.js サーバー | ブラウザ |
+| useState | 使えない | 使える |
+| useEffect | 使えない | 使える |
+| async/await | 使える | 使えない |
+| onClick 等 | 使えない | 使える |
+| 初回 HTML | データ入り | 空（Loading...） |
+| SEO | 有利 | 不利 |
+| 用途 | 初期データ取得、静的表示 | インタラクティブ UI |
+
+### Next.js の fetch キャッシュ
+
+Server Component での fetch は、Next.js が自動でキャッシュを管理する。
+
+| オプション | 動作 | ユースケース |
+|-----------|------|-------------|
+| `cache: 'force-cache'` | キャッシュ（デフォルト） | 静的データ、マスタデータ |
+| `cache: 'no-store'` | 毎回取得 | 動的データ、ユーザー固有データ |
+| `next: { revalidate: 60 }` | 60秒ごとに再取得 | 更新頻度が低いデータ |
+
+```tsx
+// 毎回取得（動的）
+const posts = await fetch('/api/posts', { cache: 'no-store' });
+
+// 60秒ごとに再検証
+const news = await fetch('/api/news', { next: { revalidate: 60 } });
+
+// キャッシュを使用（静的）- デフォルト
+const categories = await fetch('/api/categories');
+```
+
+**キャッシュの効果**:
+```
+【cache: 'no-store'】
+ユーザーA → サーバー → API → DB → レスポンス
+ユーザーB → サーバー → API → DB → レスポンス
+（毎回 API 呼び出し）
+
+【cache: 'force-cache'】
+ユーザーA → サーバー → API → DB → レスポンス → キャッシュ保存
+ユーザーB → サーバー → キャッシュから返す（API 呼び出しなし）
+（初回のみ API 呼び出し）
+```
+
+**注意**: Client Component の fetch は Next.js キャッシュとは無関係（ブラウザの通常の fetch）。
+
+### SSR での API URL の違い
+
+| 方式 | fetch 実行場所 | API URL |
+|------|---------------|---------|
+| CSR | ブラウザ | `localhost:8080`（ホストマシン経由） |
+| SSR | サーバー（front コンテナ） | `api:8080`（Docker 内通信） |
+
+SSR では「サーバー間通信」になるため、Docker 内のサービス名を使う。
+環境変数で切り替える設計が必要。
+
+```tsx
+// SSR での fetch
+const apiUrl = process.env.SSR_API_URL || "http://api:8080";
+const data = await fetch(`${apiUrl}/api/posts`);
+```
 
 ---
 
@@ -237,7 +597,13 @@ _Phase 7 開始後に記録_
 |------|------------|-------|
 | SPA = CSR である | CSR/SSR と SPA/MPA は別の軸。組み合わせ可能 | 0 |
 | Next.js は SSR | 初回SSR + 遷移後CSR のハイブリッド | 0 |
-| _例: JWTは安全_ | 保存場所次第でXSSリスクがある | - |
+| JWT は Cookie より安全 | 保存場所次第。localStorage は XSS に弱い | 3 |
+| JWT ならログアウトできない | クライアントで削除すれば通常は OK。問題は「漏洩時に無効化できない」こと | 3 |
+| JWT は新しいからモダン | 用途次第。Cookie セッション + Redis 回帰の動きもある | 3 |
+| Bearer トークン = JWT | Bearer はヘッダー形式。中身は JWT でも Opaque Token でもよい | 3 |
+| OAuth/OIDC と JWT は同じ粒度 | 認証の「主体」と「状態保持」は別レイヤー | 3 |
+| Server Component で useState が使える | 使えない。サーバーで1回実行して終わりなので状態管理は不要 | 4 |
+| Client Component で async/await が使える | 使えない。React のレンダリングは同期的。useEffect で代用 | 4 |
 
 ---
 
@@ -498,3 +864,6 @@ $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGwW7MnXJpvjH.Y0.Zo6FLaYvFua
 | 2025-02-21 | Cookie セッション認証の流れ、ログアウト処理を追加 |
 | 2025-02-21 | 認可（Authorization）の実装パターンを追加 |
 | 2025-02-21 | CSRF の仕組みと対策、CORS との違いを追加 |
+| 2025-02-21 | Phase 3: JWT の概念、Cookie セッションとの比較を追加 |
+| 2025-02-21 | Bearer トークン、認証方式のレイヤー、Form 認証を追加 |
+| 2025-02-21 | Phase 4: Server/Client Component、Next.js fetch キャッシュを追加 |

@@ -46,6 +46,14 @@ dependencies {
     // 「デフォルトで安全、必要に応じて緩める」という設計思想。
     implementation 'org.springframework.boot:spring-boot-starter-security'
 
+    // JWT (JSON Web Token) ライブラリ
+    // 【学習ポイント】
+    // jjwt: Java JWT ライブラリ。トークンの生成・検証に使用。
+    // api / impl / jackson の3つが必要（モジュール分割されている）。
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.5'
+
     // PostgreSQL ドライバ
     runtimeOnly 'org.postgresql:postgresql'
 
