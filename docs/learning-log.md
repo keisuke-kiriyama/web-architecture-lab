@@ -91,7 +91,56 @@ on the requested resource.
 
 ## Phase 2: 認証導入（Cookieセッション）
 
-_Phase 2 開始後に記録_
+### Cookie セッション認証の流れ
+
+```
+1. ログイン（POST /api/auth/login）
+   ↓
+2. サーバーがセッションを作成（メモリ上の Map に保存）
+   ↓
+3. Set-Cookie: JSESSIONID=xxx をレスポンス
+   ↓
+4. ブラウザが Cookie を保存
+   ↓
+5. 以降のリクエストで Cookie: JSESSIONID=xxx を自動送信
+   ↓
+6. サーバーがセッション ID でユーザーを特定
+```
+
+### Cookie とは
+
+**ブラウザに保存され、リクエストのたびに自動送信されるデータ。**
+
+| ヘッダー | 方向 | 意味 |
+|---------|------|------|
+| `Set-Cookie` | サーバー → ブラウザ | 「これを保存して」 |
+| `Cookie` | ブラウザ → サーバー | 「保存してたやつ送るよ」 |
+
+### セッションの保存場所
+
+| 場所 | 特徴 |
+|------|------|
+| メモリ（デフォルト） | 高速。サーバー再起動で消える |
+| Redis / DB | 永続化可能。複数サーバーで共有可能 |
+
+### ログアウト時の処理
+
+```java
+.invalidateHttpSession(true)   // サーバー側：セッション削除
+.deleteCookies("JSESSIONID")   // クライアント側：Cookie 削除指示
+```
+
+両方必要な理由：
+- サーバー側だけ → Cookie が残り、無駄なリクエストが発生
+- クライアント側だけ → サーバーにセッションが残りセキュリティリスク
+
+### Spring Security が自動提供するエンドポイント
+
+| エンドポイント | 処理 |
+|---------------|------|
+| `/api/auth/login` | Spring Security（設定で URL 指定） |
+| `/api/auth/logout` | Spring Security（設定で URL 指定） |
+| `/api/auth/register` | 自分で実装 |
 
 ---
 
@@ -391,3 +440,4 @@ $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGwW7MnXJpvjH.Y0.Zo6FLaYvFua
 | 2025-02-20 | パスワード保存（ハッシュ化・ソルト・BCrypt）を追加 |
 | 2025-02-20 | JPA・ORM・Hibernate の関係、JPA アノテーションを追加 |
 | 2025-02-21 | UserDetailsService の役割を追加 |
+| 2025-02-21 | Cookie セッション認証の流れ、ログアウト処理を追加 |
