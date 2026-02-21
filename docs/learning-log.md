@@ -310,6 +310,8 @@ useEffect(() => {
 | Spring Security | 認証・認可フレームワーク。依存関係追加だけで全エンドポイントが保護される |
 | 認証 (Authentication) | 「誰か」を確認する（ログイン） |
 | 認可 (Authorization) | 「何ができるか」を確認する（権限チェック） |
+| UserDetailsService | ユーザー名からユーザー情報を取得するインターフェース |
+| UserDetails | 認証に必要な情報（username, password, 権限等）を持つオブジェクト |
 
 **設計思想**: デフォルトで安全、必要に応じて緩める
 
@@ -321,6 +323,21 @@ useEffect(() => {
 - ユーザー名: `user`（固定）
 - パスワード: 起動時にログに出力される（毎回変わる）
 - `docker compose logs api | grep "security password"` で確認可能
+
+**UserDetailsService の役割**:
+- Spring Security は「ユーザー情報がどこにあるか」を知らない
+- 開発者が `loadUserByUsername(username)` を実装して `UserDetails` を返す
+- Spring Security がパスワード比較・セッション作成を自動で行う
+
+```
+ログインリクエスト
+    ↓
+loadUserByUsername(username) ← 開発者が実装
+    ↓
+UserDetails を返す
+    ↓
+Spring Security がパスワード比較 → 認証成功/失敗
+```
 
 ### パスワードの保存
 
@@ -373,3 +390,4 @@ $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGwW7MnXJpvjH.Y0.Zo6FLaYvFua
 | 2025-02-19 | Spring Security の基本を追加 |
 | 2025-02-20 | パスワード保存（ハッシュ化・ソルト・BCrypt）を追加 |
 | 2025-02-20 | JPA・ORM・Hibernate の関係、JPA アノテーションを追加 |
+| 2025-02-21 | UserDetailsService の役割を追加 |
