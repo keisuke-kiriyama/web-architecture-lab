@@ -7,6 +7,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 /**
  * Spring Security の設定クラス
@@ -66,10 +68,32 @@ public class SecurityConfig {
 
             // CSRF 保護
             // 【学習ポイント】
-            // REST API では CSRF トークンの扱いが複雑になるため、
-            // 一旦無効化する。後で有効化して Cookie での CSRF トークン送信を学ぶ。
-            // 【Reviewer観点】これは学習用。本番では有効化すべき。
-            .csrf(csrf -> csrf.disable())
+            // CSRF（Cross-Site Request Forgery）対策を有効化。
+            // CookieCsrfTokenRepository: CSRF トークンを Cookie で送信。
+            // withHttpOnlyFalse(): JavaScript からトークンを読み取り可能にする。
+            // フロントエンドは Cookie からトークンを読み取り、
+            // X-XSRF-TOKEN ヘッダーに設定してリクエストを送信する。
+            //
+            // 【Reviewer観点】
+            // - CSRF 保護が有効か
+            // - トークンの受け渡し方法が適切か
+            // - SameSite 属性との併用を検討しているか
+            // 【学習ポイント】
+            // ログイン・登録は CSRF チェックから除外。
+            // 理由：ログイン前はセッションがなく CSRF 攻撃のリスクが低い。
+            // ログイン成功後に CSRF トークンを発行すれば十分。
+            //
+            // 【Spring Security 6.x の注意点】
+            // デフォルトで CSRF トークンは遅延読み込み（BREACH 攻撃対策）。
+            // setCsrfRequestAttributeName(null) で即時発行に変更。
+            .csrf(csrf -> {
+                CsrfTokenRequestAttributeHandler handler = new CsrfTokenRequestAttributeHandler();
+                handler.setCsrfRequestAttributeName(null);  // 遅延読み込みを無効化
+                csrf
+                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                    .csrfTokenRequestHandler(handler)
+                    .ignoringRequestMatchers("/api/auth/login", "/api/auth/register");
+            })
 
             // URL ごとのアクセス制御
             .authorizeHttpRequests(auth -> auth

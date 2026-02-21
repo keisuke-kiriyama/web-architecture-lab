@@ -167,6 +167,36 @@ private boolean isOwner(Post post, Principal principal) {
 - `getName()` しか持たない（汎用性のため）
 - ID を直接取得するにはカスタム UserDetails が必要
 
+### CSRF（Cross-Site Request Forgery）
+
+**攻撃の仕組み**:
+1. ユーザーが bank.com にログイン（Cookie 取得）
+2. ユーザーが evil.com を訪問
+3. evil.com に仕込まれた form が bank.com に POST
+4. ブラウザが Cookie を自動送信 → 認証が通る
+5. 勝手に送金などが実行される
+
+**なぜ起きるか**: Cookie は「そのドメインへのリクエスト」に自動付与されるため。
+
+**対策（CSRF トークン）**:
+1. サーバーがランダムなトークンを Cookie で送信（XSRF-TOKEN）
+2. フロントエンドが Cookie を読み取りヘッダーに設定（X-XSRF-TOKEN）
+3. サーバーが Cookie とヘッダーを比較
+
+**なぜ有効か**: 別オリジンは Cookie を「読めない」ため、ヘッダーに設定できない。
+
+### CSRF と CORS の違い
+
+| | CSRF | CORS |
+|---|------|------|
+| **防ぎたいこと** | 操作を実行させる | データを読み取る |
+| **攻撃の例** | 勝手に送金 | 残高情報を盗む |
+| **対策の主体** | サーバー（トークン検証） | ブラウザ（レスポンス遮断） |
+
+**CORS で CSRF を防げない理由**:
+- CORS はレスポンスの読み取りを制限するが、リクエスト送信は止められない
+- 攻撃者はレスポンスを読めなくても、操作が実行されれば目的達成
+
 ---
 
 ## Phase 3: 認証方式比較（JWT）
@@ -467,3 +497,4 @@ $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGwW7MnXJpvjH.Y0.Zo6FLaYvFua
 | 2025-02-21 | UserDetailsService の役割を追加 |
 | 2025-02-21 | Cookie セッション認証の流れ、ログアウト処理を追加 |
 | 2025-02-21 | 認可（Authorization）の実装パターンを追加 |
+| 2025-02-21 | CSRF の仕組みと対策、CORS との違いを追加 |
