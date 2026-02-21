@@ -56,6 +56,17 @@ public class Post {
     @Column(name = "updated_at", insertable = false, updatable = false)
     private OffsetDateTime updatedAt;
 
+    /**
+     * 投稿者
+     *
+     * 【学習ポイント】
+     * @ManyToOne: 多対一の関係。複数の Post が 1 つの User に紐付く。
+     * @JoinColumn: 外部キーのカラム名を指定。
+     */
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
+
     // -------------------------------------------------------------------------
     // Getter / Setter
     // -------------------------------------------------------------------------
@@ -93,5 +104,13 @@ public class Post {
 
     public OffsetDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 }

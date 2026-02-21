@@ -142,6 +142,31 @@ on the requested resource.
 | `/api/auth/logout` | Spring Security（設定で URL 指定） |
 | `/api/auth/register` | 自分で実装 |
 
+### 認可（Authorization）
+
+**認証と認可の違い**:
+- 認証：「誰か」を確認する（ログイン）
+- 認可：「何ができるか」を確認する（権限チェック）
+
+**実装パターン**:
+```java
+// 所有者チェック
+private boolean isOwner(Post post, Principal principal) {
+    User currentUser = getCurrentUser(principal);
+    return post.getUser().getId().equals(currentUser.getId());
+}
+```
+
+**Reviewer 観点**:
+- 認可チェック漏れがないか（編集・削除の両方で確認）
+- ID で比較しているか（username より安全）
+- 所有者がいない場合（null）の考慮があるか
+
+**Principal について**:
+- `java.security.Principal` は Java 標準インターフェース
+- `getName()` しか持たない（汎用性のため）
+- ID を直接取得するにはカスタム UserDetails が必要
+
 ---
 
 ## Phase 3: 認証方式比較（JWT）
@@ -441,3 +466,4 @@ $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGwW7MnXJpvjH.Y0.Zo6FLaYvFua
 | 2025-02-20 | JPA・ORM・Hibernate の関係、JPA アノテーションを追加 |
 | 2025-02-21 | UserDetailsService の役割を追加 |
 | 2025-02-21 | Cookie セッション認証の流れ、ログアウト処理を追加 |
+| 2025-02-21 | 認可（Authorization）の実装パターンを追加 |
