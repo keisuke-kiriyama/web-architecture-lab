@@ -90,7 +90,16 @@ export default function PostsPage() {
   // 正常時
   return (
     <main className="min-h-screen p-8">
-      <h1 className="text-2xl font-bold mb-6">投稿一覧</h1>
+      <h1 className="text-2xl font-bold mb-6">投稿一覧（CSR）</h1>
+
+      {/* CSR であることを明示 */}
+      <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded text-sm">
+        <p>
+          <strong>CSR（Client-Side Rendering）</strong>
+        </p>
+        <p>このページはブラウザで JavaScript が実行されてデータを取得しています。</p>
+        <p>View Source で確認すると、データが含まれていない HTML が見えます。</p>
+      </div>
 
       {posts.length === 0 ? (
         <p>投稿がありません</p>
@@ -104,6 +113,15 @@ export default function PostsPage() {
           ))}
         </ul>
       )}
+
+      {/* SSR 版へのリンク */}
+      <div className="mt-8 pt-4 border-t">
+        <p className="text-sm text-gray-500">
+          <a href="/posts-ssr" className="text-blue-600 hover:underline">
+            SSR 版と比較する →
+          </a>
+        </p>
+      </div>
     </main>
   );
 }

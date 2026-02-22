@@ -87,9 +87,15 @@ public class JwtSecurityConfig {
             .csrf(csrf -> csrf.disable())
 
             // URL ごとのアクセス制御
+            // 【学習ポイント】
+            // GET /api/posts は認証不要（一覧表示は公開）
+            // POST/PUT/DELETE は認証必須（作成・更新・削除は保護）
+            // これにより CSR/SSR の比較テストが容易になる
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/posts").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/posts/**").permitAll()
                 .anyRequest().authenticated()
             )
 

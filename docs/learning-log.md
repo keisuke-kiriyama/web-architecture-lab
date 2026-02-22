@@ -553,6 +553,38 @@ const categories = await fetch('/api/categories');
 
 **注意**: Client Component の fetch は Next.js キャッシュとは無関係（ブラウザの通常の fetch）。
 
+### TypeScript の型システムと API レスポンス
+
+```tsx
+async function getPosts(): Promise<Post[]> {
+  const response = await fetch(...);
+  return response.json();  // 実行時の型: any
+}
+```
+
+**`response.json()` は `Promise<any>` を返す。**
+TypeScript は **コンパイル時の型チェックのみ** で、**実行時には型情報が消える**。
+
+| 言語 | 型チェック | API レスポンスの扱い |
+|------|-----------|---------------------|
+| **Dart** | コンパイル時 + 実行時 | `fromJson` で明示的マッピング必要 |
+| **TypeScript** | コンパイル時のみ | 不要（信じるだけ） |
+
+```dart
+// Dart: 明示的なマッピングが必要
+final dynamic json = jsonDecode(response.body);
+return (json as List).map((e) => Post.fromJson(e)).toList();
+```
+
+```tsx
+// TypeScript: 戻り値型の宣言だけで OK（実行時検証なし）
+async function getPosts(): Promise<Post[]> {
+  return response.json();  // any を Post[] として「信じる」
+}
+```
+
+**本番コードでは Zod 等で実行時バリデーションを入れることが推奨。**
+
 ### SSR での API URL の違い
 
 | 方式 | fetch 実行場所 | API URL |
