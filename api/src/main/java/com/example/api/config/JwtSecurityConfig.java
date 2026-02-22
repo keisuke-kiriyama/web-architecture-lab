@@ -96,6 +96,8 @@ public class JwtSecurityConfig {
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/posts").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/posts/**").permitAll()
+                // Thymeleaf ページは認証不要（学習用）
+                .requestMatchers("/thymeleaf/**").permitAll()
                 .anyRequest().authenticated()
             )
 
