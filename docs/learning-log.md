@@ -721,6 +721,17 @@ const handleSubmit = async () => {
 
 **結論**: 新規プロジェクトなら Thymeleaf。JSP はレガシーシステムの保守で遭遇する。
 
+**テンプレートエンジンと言語/フレームワークの組み合わせ**:
+
+| テンプレートエンジン | 前提 |
+|---------------------|------|
+| JSP | Java (Servlet) |
+| Thymeleaf | Java (Spring) |
+| EJS | Node.js (Express) |
+| Jinja2 | Python (Flask/Django) |
+| ERB | Ruby (Rails) |
+| Blade | PHP (Laravel) |
+
 ### TypeScript の型システムと API レスポンス
 
 ```tsx
