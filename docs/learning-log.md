@@ -553,6 +553,96 @@ const categories = await fetch('/api/categories');
 
 **注意**: Client Component の fetch は Next.js キャッシュとは無関係（ブラウザの通常の fetch）。
 
+### 画面遷移と値渡しの方式
+
+Web アプリで画面間でデータを渡す方法は大きく2つに分類できる。
+
+**URL に含める方式（ブックマーク可能）**:
+
+| 方式 | URL 例 | 取得方法 | 用途 |
+|------|--------|----------|------|
+| パスパラメータ | `/posts/42` | `useParams()` | リソース識別（REST 的） |
+| クエリパラメータ | `/posts?page=2&sort=desc` | `useSearchParams()` | フィルタ、ページネーション |
+
+**URL に含めない方式**:
+
+| 方式 | 用途 | 特徴 |
+|------|------|------|
+| form POST body | フォーム送信 | リダイレクトと組み合わせる |
+| localStorage | 永続データ | ブラウザに保存、閉じても残る |
+| sessionStorage | 一時データ | タブ/ウィンドウ単位、閉じると消える |
+| Cookie | セッション等 | リクエストごとに自動送信 |
+| Context/Redux | SPA の状態管理 | ページ遷移しても維持 |
+| HttpSession | サーバー側状態 | セキュアなデータ向き |
+
+**Reviewer 観点**:
+- リソース識別には**パスパラメータ**を使うべき（`/posts/42`）
+- フィルタ・オプションには**クエリパラメータ**を使うべき（`?page=2`）
+- 機密情報を URL に含めない（ログに残る、ブラウザ履歴に残る）
+
+### SPA 遷移とフルリロードの違い
+
+Next.js では `<Link>` と `<a>` タグの挙動が異なる。
+
+| 方式 | 実態 | 挙動 |
+|------|------|------|
+| `<Link>` | `<a>` + JavaScript | SPA 遷移（リロードなし） |
+| `<a>` | 純粋な `<a>` タグ | フルリロード |
+| `router.push()` | JavaScript API | SPA 遷移（プログラム的） |
+
+**SPA 遷移の仕組み**:
+```
+1. クリックイベントを JavaScript が捕捉
+2. event.preventDefault() でブラウザのデフォルト動作を止める
+3. History API (pushState) で URL を書き換え
+4. 差分だけ DOM を更新（差分レンダリング）
+```
+
+**フルリロードの仕組み**:
+```
+1. ブラウザが新しいページを取得
+2. 現在のページを破棄
+3. 新しい HTML をパース・レンダリング
+4. JavaScript を再実行
+```
+
+**SPA 遷移のメリット**:
+- 高速（必要な部分だけ更新）
+- 状態が維持される（フォーム入力値など）
+- UX が向上
+
+**SPA 遷移が使えないケース**:
+- 別ドメインへの遷移
+- 完全に別のアプリケーションへの遷移
+
+### useParams と useSearchParams
+
+Next.js App Router での値取得方法。
+
+```tsx
+// パスパラメータ: /posts/[id] → /posts/42
+const params = useParams();
+const id = params.id;  // "42"
+
+// クエリパラメータ: /posts?id=42
+const searchParams = useSearchParams();
+const id = searchParams.get("id");  // "42"
+```
+
+**useSearchParams の注意点**:
+- Suspense で囲む必要がある（Next.js の制約）
+- クエリパラメータはクライアント側でしか取得できないため
+
+```tsx
+export default function Page() {
+  return (
+    <Suspense fallback={<p>読み込み中...</p>}>
+      <ContentWithSearchParams />
+    </Suspense>
+  );
+}
+```
+
 ### TypeScript の型システムと API レスポンス
 
 ```tsx
@@ -636,6 +726,7 @@ _Phase 7 開始後に記録_
 | OAuth/OIDC と JWT は同じ粒度 | 認証の「主体」と「状態保持」は別レイヤー | 3 |
 | Server Component で useState が使える | 使えない。サーバーで1回実行して終わりなので状態管理は不要 | 4 |
 | Client Component で async/await が使える | 使えない。React のレンダリングは同期的。useEffect で代用 | 4 |
+| `<Link>` と `<a>` は同じ | `<Link>` は SPA 遷移（JavaScript 制御）、`<a>` はフルリロード | 4 |
 
 ---
 
@@ -899,3 +990,4 @@ $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGwW7MnXJpvjH.Y0.Zo6FLaYvFua
 | 2025-02-21 | Phase 3: JWT の概念、Cookie セッションとの比較を追加 |
 | 2025-02-21 | Bearer トークン、認証方式のレイヤー、Form 認証を追加 |
 | 2025-02-21 | Phase 4: Server/Client Component、Next.js fetch キャッシュを追加 |
+| 2025-02-22 | Phase 4: 画面遷移と値渡しの方式、SPA 遷移とフルリロードの違いを追加 |

@@ -8,10 +8,19 @@
  *
  * CSR では useEffect + fetch で API を呼び出す。
  * fetch はブラウザで実行されるため、CORS が発生する。
+ *
+ * 【画面遷移の学習】
+ * このページでは一覧→詳細への遷移方法を比較できる。
+ * - Link: SPA 遷移（リロードなし）
+ * - router.push: プログラム的遷移（リロードなし）
+ * - a タグ: フルリロード
+ * - クエリパラメータ: /posts?id=1 形式
  */
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 // 投稿の型定義
 type Post = {
@@ -27,6 +36,8 @@ type Post = {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export default function PostsPage() {
+  const router = useRouter();
+
   // useState: 状態管理。値が変わると再レンダリングされる
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,11 +115,49 @@ export default function PostsPage() {
       {posts.length === 0 ? (
         <p>投稿がありません</p>
       ) : (
-        <ul className="space-y-4">
+        <ul className="space-y-6">
           {posts.map((post) => (
             <li key={post.id} className="p-4 border rounded-lg">
               <h2 className="text-xl font-semibold">{post.title}</h2>
               <p className="text-gray-600 mt-2">{post.content}</p>
+
+              {/* 遷移方法の比較 */}
+              <div className="mt-4 pt-3 border-t">
+                <p className="text-sm text-gray-500 mb-2">詳細への遷移方法を比較:</p>
+                <div className="flex flex-wrap gap-2">
+                  {/* パスパラメータ + Link（SPA遷移） */}
+                  <Link
+                    href={`/posts/${post.id}`}
+                    className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                  >
+                    Link（/posts/{post.id}）
+                  </Link>
+
+                  {/* パスパラメータ + router.push（プログラム的遷移） */}
+                  <button
+                    onClick={() => router.push(`/posts/${post.id}`)}
+                    className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600"
+                  >
+                    router.push
+                  </button>
+
+                  {/* パスパラメータ + a タグ（フルリロード） */}
+                  <a
+                    href={`/posts/${post.id}`}
+                    className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+                  >
+                    a タグ（リロード）
+                  </a>
+
+                  {/* クエリパラメータ */}
+                  <Link
+                    href={`/posts/detail?id=${post.id}`}
+                    className="px-3 py-1 text-sm bg-purple-500 text-white rounded hover:bg-purple-600"
+                  >
+                    クエリ（?id={post.id}）
+                  </Link>
+                </div>
+              </div>
             </li>
           ))}
         </ul>
