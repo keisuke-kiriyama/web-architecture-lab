@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<!--
+  投稿一覧ページ（Thymeleaf 版）
+
+  【学習ポイント】
+  Thymeleaf は HTML をそのまま書き、th:xxx 属性で動的な部分を指定する。
+  ブラウザで直接開いても表示できる（Natural Templates）。
+
+  【SPA との比較】
+  SPA: JavaScript が JSON を取得 → DOM を構築
+  MPA: サーバーが完成した HTML を返す（この方式）
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>投稿一覧 (Thymeleaf)</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .info-box { padding: 12px; margin-bottom: 20px; border-radius: 4px; font-size: 14px; }
+        .info-box.orange { background: #fff3e0; border: 1px solid #ff9800; color: #e65100; }
+        h1 { color: #333; }
+        .post { border: 1px solid #ddd; padding: 16px; margin-bottom: 16px; border-radius: 8px; }
+        .post h2 { margin: 0 0 8px 0; font-size: 18px; }
+        .post p { color: #666; margin: 0 0 12px 0; }
+        .actions { display: flex; gap: 8px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; text-decoration: none; font-size: 14px; }
+        .btn-primary { background: #2196f3; color: white; }
+        .btn-secondary { background: #757575; color: white; }
+        .btn-danger { background: #f44336; color: white; }
+        .btn:hover { opacity: 0.9; }
+        .empty { color: #999; padding: 20px; text-align: center; }
+        .nav { margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; }
+        form { display: inline; }
+    </style>
+</head>
+<body>
+    <h1>投稿一覧（Thymeleaf / MPA）</h1>
+
+    <!-- MPA であることを明示 -->
+    <div class="info-box orange">
+        <p><strong>MPA（Multi-Page Application）+ サーバーサイドレンダリング</strong></p>
+        <p>このページはサーバー（Spring Boot + Thymeleaf）で HTML を生成しています。</p>
+        <p>View Source で確認すると、データが埋め込まれた HTML が見えます。</p>
+    </div>
+
+    <!-- 新規作成ボタン -->
+    <div style="margin-bottom: 20px;">
+        <a th:href="@{/thymeleaf/posts/new}" class="btn btn-primary">+ 新規作成</a>
+    </div>
+
+    <!-- 投稿がない場合 -->
+    <div th:if="${#lists.isEmpty(posts)}" class="empty">
+        投稿がありません
+    </div>
+
+    <!-- 投稿一覧 -->
+    <!--
+      【学習ポイント: th:each】
+      Java の for-each と同様。posts リストの各要素を post として処理。
+    -->
+    <div th:each="post : ${posts}" class="post">
+        <h2 th:text="${post.title}">タイトル（プレビュー用）</h2>
+        <p th:text="${post.content}">コンテンツ（プレビュー用）</p>
+
+        <div class="actions">
+            <!--
+              【学習ポイント: th:href】
+              @{...} でコンテキストパスを考慮した URL を生成。
+              ${...} で変数を埋め込む。
+            -->
+            <a th:href="@{/thymeleaf/posts/{id}(id=${post.id})}" class="btn btn-secondary">
+                詳細
+            </a>
+            <a th:href="@{/thymeleaf/posts/{id}/edit(id=${post.id})}" class="btn btn-primary">
+                編集
+            </a>
+
+            <!--
+              【学習ポイント: form POST で削除】
+              HTML の a タグや button だけでは POST を送れない。
+              form で囲んで submit する必要がある。
+
+              【CSRF トークン】
+              Thymeleaf + Spring Security では、
+              th:action を使うと CSRF トークンが自動で hidden フィールドに埋め込まれる。
+            -->
+            <form th:action="@{/thymeleaf/posts/{id}/delete(id=${post.id})}" method="post">
+                <button type="submit" class="btn btn-danger"
+                        onclick="return confirm('削除しますか？')">
+                    削除
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Next.js 版へのリンク -->
+    <div class="nav">
+        <p style="color: #999; font-size: 14px;">
+            SPA 版と比較:
+            <a href="http://localhost:3000/posts" style="color: #2196f3;">
+                Next.js (CSR) 版 →
+            </a>
+        </p>
+    </div>
+</body>
+</html>

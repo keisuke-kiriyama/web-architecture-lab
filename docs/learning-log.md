@@ -643,6 +643,84 @@ export default function Page() {
 }
 ```
 
+### PRG パターン（Post-Redirect-Get）
+
+MPA でフォーム送信後に使うべきパターン。
+
+**問題: POST の結果をそのまま返すと何が起きるか**
+
+```
+1. POST /posts （フォーム送信）
+2. サーバーが DB に保存
+3. サーバーが「投稿完了」HTML を返す（200 OK）
+
+この時点でブラウザの履歴は：
+→ 最後のリクエスト = POST /posts
+
+4. ユーザーが F5 を押す
+→ ブラウザが「POST /posts」を再送信 → 二重投稿
+```
+
+**ブラウザの「更新」は「直前のリクエストを再送信する」動作**。
+POST で画面を返すと、F5 で POST が再送される。
+
+**解決: PRG パターン**
+
+```
+1. POST /posts （フォーム送信）
+2. サーバーが DB に保存
+3. サーバーが 302 リダイレクトを返す（Location: /posts）
+4. ブラウザが GET /posts を自動で送る
+5. サーバーが一覧ページの HTML を返す
+
+→ F5 を押しても GET /posts が再送されるだけ（安全）
+```
+
+**Spring での実装**:
+```java
+@PostMapping
+public String create(@ModelAttribute Post post) {
+    postRepository.save(post);
+    return "redirect:/posts";  // "redirect:" で 302 を返す
+}
+```
+
+**SPA ではどうするか**:
+```tsx
+const handleSubmit = async () => {
+  await fetch('/api/posts', { method: 'POST', body: JSON.stringify(data) });
+  router.push('/posts');  // JavaScript でページ遷移
+};
+```
+- fetch はページ遷移しない（ブラウザ履歴に残らない）
+- router.push で履歴に GET として残る
+- 結果的に PRG と同様の効果
+
+### テンプレートエンジン（JSP vs Thymeleaf）
+
+どちらも SSR でサーバー側で HTML を生成する仕組み。
+
+| 項目 | JSP | Thymeleaf |
+|------|-----|-----------|
+| 目的 | サーバーで HTML に値を埋め込む | 同じ |
+| 文法 | `<%= value %>` や JSTL タグ | `th:text="${value}"` |
+| 拡張子 | `.jsp` | `.html` |
+| Natural Templates | 不可（ブラウザで直接開くと壊れる） | 可能（HTML として有効） |
+| Spring Boot 統合 | 追加設定が必要 | デフォルトでサポート |
+| XSS 対策 | 意識して書く必要あり | デフォルトでエスケープ |
+| 現在の主流 | レガシー扱い | Spring の推奨 |
+
+**Natural Templates の例**:
+```html
+<!-- Thymeleaf: ブラウザで開いても見える -->
+<p th:text="${user.name}">プレビュー用の名前</p>
+
+<!-- JSP: ブラウザで開くと壊れる -->
+<p><%= user.getName() %></p>
+```
+
+**結論**: 新規プロジェクトなら Thymeleaf。JSP はレガシーシステムの保守で遭遇する。
+
 ### TypeScript の型システムと API レスポンス
 
 ```tsx
@@ -991,3 +1069,4 @@ $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGwW7MnXJpvjH.Y0.Zo6FLaYvFua
 | 2025-02-21 | Bearer トークン、認証方式のレイヤー、Form 認証を追加 |
 | 2025-02-21 | Phase 4: Server/Client Component、Next.js fetch キャッシュを追加 |
 | 2025-02-22 | Phase 4: 画面遷移と値渡しの方式、SPA 遷移とフルリロードの違いを追加 |
+| 2025-02-22 | Phase 4: PRG パターン、テンプレートエンジン（JSP vs Thymeleaf）を追加 |

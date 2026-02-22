@@ -34,6 +34,13 @@ dependencies {
     // Spring Boot Web: REST API を作成するための基本機能
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
+    // Thymeleaf: サーバーサイドテンプレートエンジン
+    // 【学習ポイント】
+    // HTML テンプレートをサーバーで処理し、完成した HTML を返す（SSR）。
+    // Next.js の SSR と同様だが、こちらは純粋にサーバー側で完結。
+    // form POST + PRG パターンの学習に使用。
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+
     // Spring Boot Data JPA: DB アクセスを簡略化する ORM
     // 【学習ポイント】
     // JPA = Java Persistence API。SQL を直接書かずに DB 操作できる。
