@@ -764,6 +764,87 @@ async function getPosts(): Promise<Post[]> {
 
 **本番コードでは Zod 等で実行時バリデーションを入れることが推奨。**
 
+---
+
+## Phase 5: BFFアーキテクチャ
+
+### BFF（Backend for Frontend）とは
+
+フロントエンド専用の中継サーバー。本丸の API の前に置く。
+
+```
+【BFF なし】
+ブラウザ → API（本丸）
+
+【BFF あり】
+ブラウザ → BFF → API（本丸）
+```
+
+### Next.js を BFF として使う
+
+Next.js の Route Handler（`/app/api/.../route.ts`）が BFF の役割を担う。
+
+```
+ブラウザ (localhost:3000)
+    ↓ fetch('/api/posts')  ← 同一オリジン
+Next.js サーバー (Route Handler)  ← ここが BFF
+    ↓ fetch('http://api:8080/api/posts')  ← サーバー間通信
+Spring Boot API
+```
+
+Route Handler は**常にサーバーで実行**される。CSR でも SSR でも同じ BFF を呼べる。
+
+### BFF のメリット
+
+| 観点 | BFF なし | BFF あり |
+|------|----------|----------|
+| CORS | 発生する（異なるオリジン） | 発生しない（同一オリジン） |
+| トークン | ブラウザに保存（XSS リスク） | サーバーに保存（安全） |
+| API 設計 | フロント都合で設計しがち | バックエンドは純粋なリソース設計 |
+| 複数 API | フロントで複数回呼ぶ | BFF で1回にまとめる |
+
+### トークンをブラウザに露出させない
+
+**BFF なし（危険）**:
+```
+1. ログイン → API が JWT を返す
+2. ブラウザが JWT を localStorage に保存
+3. XSS 攻撃で localStorage を読まれる → JWT 盗難
+```
+
+**BFF あり（安全）**:
+```
+1. ログイン → BFF が API から JWT を受け取る
+2. BFF が JWT を「サーバー側セッション」に保存
+3. ブラウザには HttpOnly Cookie（セッション ID）だけ返す
+4. 以降: ブラウザ → BFF（Cookie）→ API（JWT）
+→ JWT はブラウザに一切渡らない
+```
+
+```
+【BFF なし】
+ブラウザ ←→ API
+   ↑
+   JWT を保存（XSS で盗まれるリスク）
+
+【BFF あり】
+ブラウザ ←→ BFF ←→ API
+   ↑          ↑
+   Cookie     JWT を保存
+  （HttpOnly） （サーバー内、安全）
+```
+
+### BFF が有効なケース
+
+| ケース | BFF の効果 |
+|--------|-----------|
+| セキュリティ重視（金融、医療等） | ◎ トークンをサーバーに閉じ込められる |
+| 複数のバックエンド API がある | ◎ 集約して1回で返せる |
+| モバイルアプリも同じ API を使う | ◎ Web 用の加工を BFF に閉じ込められる |
+| 単純な CRUD、1つの API | △ オーバーヘッドになることも |
+
+---
+
 ### SSR での API URL の違い
 
 | 方式 | fetch 実行場所 | API URL |
@@ -1081,3 +1162,4 @@ $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGwW7MnXJpvjH.Y0.Zo6FLaYvFua
 | 2025-02-21 | Phase 4: Server/Client Component、Next.js fetch キャッシュを追加 |
 | 2025-02-22 | Phase 4: 画面遷移と値渡しの方式、SPA 遷移とフルリロードの違いを追加 |
 | 2025-02-22 | Phase 4: PRG パターン、テンプレートエンジン（JSP vs Thymeleaf）を追加 |
+| 2025-02-26 | Phase 5: BFF アーキテクチャの概念、メリット、トークン管理を追加 |
