@@ -884,7 +884,70 @@ const data = await fetch(`${apiUrl}/api/posts`);
 
 ## Phase 5: BFFアーキテクチャ
 
-_Phase 5 開始後に記録_
+### CORS が発生する理由
+
+ブラウザが「HTML を取得したオリジン」と「fetch 先のオリジン」が異なる場合、CORS チェックが発生する。
+
+```
+【直接 API アクセス】
+HTML 取得元: localhost:3000
+fetch 先:    localhost:8080  ← オリジンが違う → CORS 発生
+
+【BFF 経由】
+HTML 取得元: localhost:3000
+fetch 先:    localhost:3000/api/posts  ← 同一オリジン → CORS なし
+```
+
+### Access-Control-Allow-Origin ヘッダー
+
+API 側が「このオリジンからのアクセスを許可する」と宣言するレスポンスヘッダー。
+
+```
+【直接 API 版】
+Response Headers:
+  Access-Control-Allow-Origin: http://localhost:3000  ← API が許可を宣言
+
+【BFF 版】
+Response Headers:
+  Access-Control-Allow-Origin: (なし)  ← 同一オリジンなので不要
+```
+
+DevTools の Network タブ → リクエスト選択 → Response Headers で確認できる。
+
+### BFF でのトークン保護（詳細）
+
+**BFF なし**: JWT がブラウザに露出
+```
+1. ログイン → API が JWT を返す
+2. ブラウザが localStorage に保存
+3. XSS で盗まれるリスク
+```
+
+**BFF あり**: JWT をサーバーに閉じ込め
+```
+1. ログイン → BFF が API から JWT を受け取る
+2. BFF が JWT を自サーバーのセッションに保存
+3. ブラウザには HttpOnly Cookie（セッション ID）だけ返す
+
+以降:
+4. ブラウザ → BFF（Cookie でセッション ID）
+5. BFF がセッションから JWT を取り出す
+6. BFF → API（JWT を付けてリクエスト）
+```
+
+| 区間 | 認証手段 | 保存場所 |
+|------|----------|----------|
+| ブラウザ ↔ BFF | セッション ID（HttpOnly Cookie） | ブラウザ（JS で読めない） |
+| BFF ↔ API | JWT | BFF サーバー内（安全） |
+
+**HttpOnly Cookie は JavaScript から読めない**ため、XSS で盗めない。
+
+### 動作確認結果
+
+| URL | 方式 | fetch 先 | CORS |
+|-----|------|----------|------|
+| /posts | 直接 API | localhost:8080 | あり |
+| /posts-bff | BFF 経由 | localhost:3000/api/posts | なし |
 
 ---
 
@@ -1182,3 +1245,4 @@ $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGwW7MnXJpvjH.Y0.Zo6FLaYvFua
 | 2025-02-22 | Phase 4: 画面遷移と値渡しの方式、SPA 遷移とフルリロードの違いを追加 |
 | 2025-02-22 | Phase 4: PRG パターン、テンプレートエンジン（JSP vs Thymeleaf）を追加 |
 | 2025-02-26 | Phase 5: BFF アーキテクチャの概念、メリット、トークン管理を追加 |
+| 2025-03-28 | Phase 5: CORS 発生理由、Access-Control-Allow-Origin、BFF 動作確認を追加 |
